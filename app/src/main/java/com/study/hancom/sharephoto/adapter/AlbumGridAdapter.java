@@ -1,0 +1,144 @@
+package com.study.hancom.sharephoto.adapter;
+
+import android.content.Context;
+import android.content.Intent;
+import android.os.Bundle;
+import android.support.v7.widget.RecyclerView;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.CheckBox;
+import android.widget.TextView;
+
+import com.study.hancom.sharephoto.R;
+import com.study.hancom.sharephoto.activity.AlbumFullSizeWebViewActivity;
+import com.study.hancom.sharephoto.adapter.base.RecyclerClickableItemAdapter;
+import com.study.hancom.sharephoto.model.Album;
+import com.study.hancom.sharephoto.model.Page;
+import com.study.hancom.sharephoto.model.Picture;
+import com.study.hancom.sharephoto.util.WebViewUtil;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+
+public class AlbumGridAdapter extends RecyclerClickableItemAdapter<AlbumGridAdapter.ViewHolder> {
+
+    private Context mContext;
+    private Album mAlbum;
+
+    private Set<Integer> mPinnedPositionSet = new HashSet<>();
+    private Set<View> mWebViewSet = new HashSet<>();
+
+    public AlbumGridAdapter(Context context, Album album) {
+        mContext = context;
+        mAlbum = album;
+    }
+
+    @Override
+    public long getItemId(int position) {
+        return position;
+    }
+
+    @Override
+    public int getItemCount() {
+        return mAlbum.getPageCount();
+    }
+
+    @Override
+    public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+        final View view = LayoutInflater.from(mContext).inflate(R.layout.album_overview_grid_item, parent, false);
+        return new ViewHolder(view);
+    }
+
+    @Override
+    public void onBindViewHolder(ViewHolder holder, final int position) {
+        /* 텍스트뷰 처리 */
+        String pageNum = Integer.toString(position + 1) + "페이지";
+        holder.textView.setText(pageNum);
+
+        /* 체크박스 처리 */
+        if (mPinnedPositionSet.contains(position)) {
+            holder.checkBox.setChecked(true);
+        } else {
+            holder.checkBox.setChecked(false);
+        }
+
+        final CheckBox checkBox = holder.checkBox;
+        checkBox.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!mPinnedPositionSet.remove(position)) {
+                    mPinnedPositionSet.add(position);
+                }
+            }
+        });
+
+       /* 웹뷰 처리 */
+        holder.webView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(mContext, AlbumFullSizeWebViewActivity.class);
+                Bundle bundle = new Bundle();
+                bundle.putParcelable("album", mAlbum);
+                bundle.putInt("pageIndex", position);
+                intent.putExtras(bundle);
+                mContext.startActivity(intent);
+            }
+        });
+
+        // Add a WebViewClient
+        holder.webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                injectAll(position, view);
+                mWebViewSet.add(view);
+            }
+        });
+
+        if (mWebViewSet.contains(holder.webView)) {
+            injectAll(position, holder.webView);
+        }
+    }
+
+    public ArrayList<Integer> getPinnedPositionAll() {
+        return new ArrayList<>(mPinnedPositionSet);
+    }
+
+    public void addPinnedPosition(int position) {
+        mPinnedPositionSet.add(position);
+    }
+
+    public boolean removePinnedPosition(int position) {
+        return mPinnedPositionSet.remove(position);
+    }
+
+    private void injectAll(int position, WebView view) {
+        Page page = mAlbum.getPage(position);
+        int pictureCount = page.getPictureCount();
+        ArrayList<Picture> pictureList = new ArrayList<>();
+
+        for (int i = 0; i < pictureCount; i++) {
+            pictureList.add(page.getPicture(i));
+        }
+
+        WebViewUtil.injectStyleByScript(view, page.getLayout().getPath());
+        WebViewUtil.injectPictureElementByScript(view, pictureList);
+    }
+
+    class ViewHolder extends RecyclerView.ViewHolder {
+        TextView textView;
+        WebView webView;
+        CheckBox checkBox;
+
+        ViewHolder(View itemView) {
+            super(itemView);
+            textView = (TextView) itemView.findViewById(R.id.page_header_text);
+            checkBox = (CheckBox) itemView.findViewById(R.id.page_checkbox);
+            webView = (WebView) itemView.findViewById(R.id.page_web_view);
+            webView.loadDataWithBaseURL("file:///android_asset/", WebViewUtil.getDefaultHTMLData(mContext), "text/html", "UTF-8", null);
+        }
+    }
+}
