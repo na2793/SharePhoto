@@ -1,0 +1,16 @@
+div {
+	overflow: hidden;
+	background-size: cover;
+	background-position: center center;
+	background-repeat:no-repeat;
+	display:table;
+	border: 1px solid #444444;
+}
+
+#_1 {	
+	position:absolute;
+	width:748px;
+	height:1004px;
+	left: 10px;
+	top : 10px;
+}
